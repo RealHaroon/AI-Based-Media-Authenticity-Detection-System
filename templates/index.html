@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Based Media Authenticity Detection</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 760px;
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      color: #f8fafc;
+    }
+    p {
+      margin: 0 0 20px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .upload-box {
+      border: 2px dashed #475569;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      background: #0b1220;
+      margin-bottom: 18px;
+    }
+    input[type="file"] {
+      margin-top: 12px;
+      color: #cbd5e1;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+    .preview-wrap {
+      margin-top: 20px;
+      display: none;
+    }
+    .preview-wrap img {
+      width: 100%;
+      max-height: 360px;
+      object-fit: contain;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      background: #020617;
+    }
+    .result {
+      margin-top: 22px;
+      padding: 18px;
+      border-radius: 14px;
+      background: #0b1220;
+      border: 1px solid #334155;
+      display: none;
+    }
+    .result h2 {
+      margin: 0 0 14px;
+      font-size: 22px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .metric {
+      background: #111827;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #334155;
+    }
+    .label {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+    .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .msg {
+      margin-top: 8px;
+      color: #cbd5e1;
+    }
+    .error {
+      margin-top: 14px;
+      color: #fca5a5;
+      display: none;
+    }
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>AI-Based Media Authenticity Detection</h1>
+    <p>Upload a face image and the system will estimate whether it is real or AI-generated.</p>
+
+    <div class="upload-box">
+      <div><strong>Select an image</strong></div>
+      <input type="file" id="fileInput" accept="image/*" />
+      <br />
+      <button id="predictBtn">Analyze Image</button>
+      <div class="error" id="errorBox"></div>
+    </div>
+
+    <div class="preview-wrap" id="previewWrap">
+      <img id="previewImage" alt="Preview" />
+    </div>
+
+    <div class="result" id="resultBox">
+      <h2>Prediction Result</h2>
+      <div class="status" id="statusText">-</div>
+      <div class="msg" id="verdictText">-</div>
+
+      <div class="grid">
+        <div class="metric">
+          <div class="label">Confidence</div>
+          <div class="value" id="confidenceValue">-</div>
+        </div>
+        <div class="metric">
+          <div class="label">Label</div>
+          <div class="value" id="labelValue">-</div>
+        </div>
+        <div class="metric">
+          <div class="label">Probability Real</div>
+          <div class="value" id="realValue">-</div>
+        </div>
+        <div class="metric">
+          <div class="label">Probability Fake</div>
+          <div class="value" id="fakeValue">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const predictBtn = document.getElementById("predictBtn");
+    const previewWrap = document.getElementById("previewWrap");
+    const previewImage = document.getElementById("previewImage");
+    const resultBox = document.getElementById("resultBox");
+    const errorBox = document.getElementById("errorBox");
+
+    const statusText = document.getElementById("statusText");
+    const verdictText = document.getElementById("verdictText");
+    const confidenceValue = document.getElementById("confidenceValue");
+    const labelValue = document.getElementById("labelValue");
+    const realValue = document.getElementById("realValue");
+    const fakeValue = document.getElementById("fakeValue");
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImage.src = e.target.result;
+        previewWrap.style.display = "block";
+        resultBox.style.display = "none";
+        errorBox.style.display = "none";
+        errorBox.textContent = "";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    predictBtn.addEventListener("click", async () => {
+      const file = fileInput.files[0];
+
+      if (!file) {
+        errorBox.textContent = "Please choose an image first.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      predictBtn.disabled = true;
+      predictBtn.textContent = "Analyzing...";
+      errorBox.style.display = "none";
+      resultBox.style.display = "none";
+
+      try {
+        const response = await fetch("/predict/image", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Prediction failed.");
+        }
+
+        labelValue.textContent = data.label;
+        confidenceValue.textContent = data.confidence + "%";
+        realValue.textContent = data.prob_real + "%";
+        fakeValue.textContent = data.prob_fake + "%";
+        verdictText.textContent = data.verdict;
+
+        statusText.textContent =
+          data.label === "Real" ? "✅ Likely Real" :
+          data.label === "AI-Generated" ? "⚠️ Likely AI-Generated" :
+          "🤔 Uncertain";
+
+        resultBox.style.display = "block";
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = "block";
+      } finally {
+        predictBtn.disabled = false;
+        predictBtn.textContent = "Analyze Image";
+      }
+    });
+  </script>
+</body>
+</html>
